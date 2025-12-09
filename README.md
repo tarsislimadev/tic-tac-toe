@@ -4,4 +4,4 @@ Tic-tac-toe is played on a three-by-three grid by two players, who alternately p
 
 ## license
 
-[MIT](./LICENSE.md)
+[MIT](./LICENSE)
