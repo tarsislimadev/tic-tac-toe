@@ -1,12 +1,22 @@
-const grid = [
-  ['', '', ''],
-  ['', '', ''],
-  ['', '', ''],
+const state = { clicks: [], }
+
+const lines = [
+  // horizontal
+  [[0, 0], [0, 1], [0, 2]],
+  [[1, 0], [1, 1], [1, 2]],
+  [[2, 0], [2, 1], [2, 2]],
+  // veritcal
+  [[0, 0], [1, 0], [2, 0]],
+  [[0, 1], [1, 1], [2, 1]],
+  [[0, 2], [1, 2], [2, 2]],
+  // diagonal
+  [[0, 0], [1, 1], [2, 2]],
+  [[0, 2], [1, 1], [2, 0]]
 ]
 
 const ee = new EventTarget()
 
-ee.addEventListener('win', ({ value: letter }) => {
+ee.addEventListener('win', ({ value: { letter } }) => {
   text.innerText = letter + ' wins'
 })
 
@@ -14,7 +24,16 @@ ee.addEventListener('draw', () => {
   text.innerText = 'Draw!'
 })
 
-const state = { steps: 0 }
+ee.addEventListener('click', ({ value: { line, column, letter } }) => {
+  state.clicks.push({ line, column, letter })
+  update()
+})
+
+const createEvent = (name, value = null) => {
+  const ev = new CustomEvent(name)
+  if (value !== null) ev.value = value
+  return ev
+}
 
 const app = document.getElementById('app')
 
@@ -29,69 +48,49 @@ app.appendChild(text)
 const update = () => {
   Array.from(table.children).map((c) => c.remove())
 
-  grid.map((line, line_ix) => {
+  Array.from(Array(3)).map((_, line) => {
     const tr = document.createElement('tr')
-    line.map((cell, cell_ix) => {
+    Array.from(Array(3)).map((_, column) => {
       const td = document.createElement('td')
       td.style.border = '1px solid #000'
       td.style.width = '3rem'
       td.style.height = '3rem'
       td.style.textAlign = 'center'
-      td.addEventListener('click', () => {
-        console.log('pos', line_ix, cell_ix)
-        const step = state.steps++
-        const player = step % 2
-        td.innerText = grid[line_ix][cell_ix] = player == 0 ? 'X' : 'O'
-        check()
-      })
-      td.innerText = grid[line_ix][cell_ix]
+      const pos = state.clicks.findIndex((click) => click.line == line && click.column == column)
+      if (pos == -1) {
+        td.addEventListener('click', () => {
+          const letter = state.clicks.length % 2 == 0 ? 'x' : 'o'
+          ee.dispatchEvent(createEvent('click', { line: line, column: column, letter }))
+          check(letter)
+        })
+      } else {
+        td.innerText = pos % 2 == 0 ? 'x' : 'o'
+      }
+
       tr.appendChild(td)
     })
     table.appendChild(tr)
   })
 }
 
-update()
+const check = (letter) => {
+  const clicks = state.clicks.filter((click) => click.letter == letter)
 
-const check = () => {
-  const lines = [
-    // horizontal
-    [[0, 0], [0, 1], [0, 2]],
-    [[1, 0], [1, 1], [1, 2]],
-    [[2, 0], [2, 1], [2, 2]],
-    // veritcal
-    [[0, 0], [1, 0], [2, 0]],
-    [[0, 1], [1, 1], [2, 1]],
-    [[0, 2], [1, 2], [2, 2]],
-    // diagonal
-    [[0, 0], [1, 1], [2, 2]],
-    [[0, 2], [1, 1], [2, 0]]
-  ]
-
-  const winners = lines.map(([l1, l2, l3], line_ix) => {
-    const [x, y] = l1
-    const letter = grid[x][y] // X ou O
-
-    if (grid[l1[0]][l1[1]] == '') return
-    if (grid[l2[0]][l2[1]] == '') return
-    if (grid[l3[0]][l3[1]] == '') return
-
-    if (grid[l1[0]][l1[1]] == grid[l2[0]][l2[1]] && grid[l2[0]][l2[1]] == grid[l3[0]][l3[1]]) {
-      return letter
-    }
-
-    return null
+  const winner_line = lines.map((line) => {
+    return line.every(([l, c]) =>
+      clicks.find((click) => click.line == l && click.column == c)
+    )
   })
 
-  const winner = winners.find((w) => w !== null)
-  if (winner) {
-    const ev = new CustomEvent('win')
-    ev.value = winner
-    ee.dispatchEvent(ev)
+  const ix = winner_line.findIndex(Boolean)
+
+  if (ix != -1) {
+    ee.dispatchEvent(createEvent('win', { letter }))
   } else {
-    const all_filled = grid.every((line) => line.every((cell) => cell != ''))
-    if (all_filled) {
-      ee.dispatchEvent(new CustomEvent('draw'))
+    if (state.clicks.length == 9) {
+      ee.dispatchEvent(createEvent('draw'))
     }
   }
 }
+
+update()
